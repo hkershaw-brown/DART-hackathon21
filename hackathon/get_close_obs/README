@@ -1,0 +1,40 @@
+# Test harness for get_close_obs 
+
+DART-gc/build_templates/mkmf.template is where the compiler flags are set
+
+To compile:
+
+   cd work
+   ./mkmf_preprocess 
+   make
+   preprocess
+   
+   Note, you only need to run preprocess once to generate the DART code. 
+   Then to compile test_get_close_obs:
+    
+   ./mkmf_test_get_close_obs -mpi
+   make
+
+The location mod being used is in this directory:  location_mod.f90 
+
+The original location_mod.f90 is in threed_sphere/location_mod.f90
+
+You can change which source files are used in the generation of Makfefiles 
+by editiing work/path_names_test_get_close_obs
+
+DART-gc/assimilation_code/location contains the various DART location modules. 
+
+annulus/location_mod.f90
+twod_sphere/location_mod.f90
+twod_annulus/location_mod.f90
+column/location_mod.f90
+channel/location_mod.f90
+threed/location_mod.f90
+oned/location_mod.f90
+twod/location_mod.f90
+threed_cartesian/location_mod.f90
+threed_sphere/location_mod.f90
+
+
+
+  

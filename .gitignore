@@ -13,9 +13,9 @@ _site/
 # Nuisance files
 
 # Makefile
-build_templates/mkmf.template
+#build_templates/mkmf.template
 dart_log.*
-mkmf.template
+#mkmf.template
 input.nml.*default
 filter_ics
 obs_def_mod.f90
@@ -38,6 +38,7 @@ rtcoef*
 
 # Executables
 
+test_get_close_obs
 advance_time
 closest_member_tool
 compare_states

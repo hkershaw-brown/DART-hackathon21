@@ -68,7 +68,7 @@ my @list;
 my @nml_list;
 #some constants
 my $endline = $/;
-my @src_suffixes = ( q/\.F/, q/\.F90/, q/\.c/, q/\.f/, q/\.f90/ );
+my @src_suffixes = ( q/\.F/, q/\.F90/, q/\.c/, q/\.f/, q/\.f90/, q/\.cuf/);
 my @inc_suffixes = ( q/\.H/, q/\.fh/, q/\.h/, q/\.inc/ );
 push @inc_suffixes, @src_suffixes; # sourcefiles can be includefiles too
 my @tgt_suffixes = ( q/\.a/ );
