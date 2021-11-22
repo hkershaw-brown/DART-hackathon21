@@ -5,7 +5,7 @@ DART-hackathon21/build_templates/mkmf.template is where the compiler flags are s
 To compile:
  
    module load cray-hdf5/1.12.0.7 
-   export LD_LIBRARY_PATH=/global/homes/t/train187/software/nv/lib:$LD_LIBRARY_PATH
+   module load cray-netcdf/4.7.4.7
 
    cd DART-hackathon21/hackathon/get_close_obs/work
    ./mkmf_preprocess 

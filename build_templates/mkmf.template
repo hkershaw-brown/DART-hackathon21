@@ -15,8 +15,7 @@ MPILD = ftn
 FC = nvfortran
 LD = nvfortran
 
-#NETCDF = /global/common/software/nersc/easybuild/perlmutter/21.10/software/netCDF/4.7.4-gompi-2020b
-NETCDF = /global/homes/t/train187/software/nv
+#NETCDF = /global/homes/t/train187/software/nv
 
 INCS = -I$(NETCDF)/include
 LIBS = -L$(NETCDF)/lib -lnetcdf -lnetcdff
