@@ -10,12 +10,13 @@
 # mkmf -t mkmf.template.xxxx ...
 #
 
-MPIFC = ftn
-MPILD = ftn
+MPIFC = mpif90
+MPILD = mpif90
 FC = nvfortran
 LD = nvfortran
 
-#NETCDF = /global/homes/t/train187/software/nv
+# include dir does not seem to be set by module load on Ascent
+NETCDF = /sw/ascent/spack-envs/base-rh7/opt/linux-rhel7-ppc64le/nvhpc-21.3/netcdf-fortran-4.4.5-5ow4urtqxanin7andkxizxbar4rqpxyn
 
 INCS = -I$(NETCDF)/include
 LIBS = -L$(NETCDF)/lib -lnetcdf -lnetcdff
