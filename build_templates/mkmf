@@ -81,14 +81,19 @@ if ( $opt_w ) {
        q/.F90/ => q/$(MPIFC) $(CPPDEFS) $(CPPFLAGS) $(FFLAGS) $(OTHERFLAGS) -c/,
        q/.c/   => q/$(MPICC) $(CPPDEFS) $(CPPFLAGS) $(CFLAGS) $(OTHERFLAGS) -c/,
        q/.f/   => q/$(MPIFC) $(FFLAGS) $(OTHERFLAGS) -c/,
-       q/.f90/ => q/$(MPIFC) $(FFLAGS) $(OTHERFLAGS) -c/              );
+       q/.f90/ => q/$(MPIFC) $(FFLAGS) $(OTHERFLAGS) -c/,
+       # cuda fortran files
+       q/.cuf/ => q/$(MPIFC) $(FFLAGS) $(OTHERFLAGS) -c/
+              );
 } else {
    %compile_cmd = ( # default command to create .o file from a given source file suffix
        q/.F/   => q/$(FC) $(CPPDEFS) $(CPPFLAGS) $(FFLAGS) $(OTHERFLAGS) -c/,
        q/.F90/ => q/$(FC) $(CPPDEFS) $(CPPFLAGS) $(FFLAGS) $(OTHERFLAGS) -c/,
        q/.c/   => q/$(CC) $(CPPDEFS) $(CPPFLAGS) $(CFLAGS) $(OTHERFLAGS) -c/,
        q/.f/   => q/$(FC) $(FFLAGS) $(OTHERFLAGS) -c/,
-       q/.f90/ => q/$(FC) $(FFLAGS) $(OTHERFLAGS) -c/              );
+       q/.f90/ => q/$(FC) $(FFLAGS) $(OTHERFLAGS) -c/,
+       q/.cuf/ => q/$(FC) $(FFLAGS) $(OTHERFLAGS) -c/
+              );
 }
 my %delim_match = ( q/'/ => q/'/,	# hash to find includefile delimiter pair
 		    q/"/ => q/"/,

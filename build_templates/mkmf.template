@@ -20,6 +20,6 @@ NETCDF = /sw/ascent/spack-envs/base-rh7/opt/linux-rhel7-ppc64le/nvhpc-21.3/netcd
 
 INCS = -I$(NETCDF)/include
 LIBS = -L$(NETCDF)/lib -lnetcdf -lnetcdff
-FFLAGS  = $(INCS) -Mbackslash
+FFLAGS  = $(INCS) -g -Mbackslash -cuda
 LDFLAGS = $(FFLAGS) $(LIBS)
 
