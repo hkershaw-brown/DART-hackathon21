@@ -2,7 +2,7 @@
 
 DART-hackathon21/build_templates/mkmf.template is where the compiler flags are set
 
-To compile:
+To compile on Perlmutter:
  
    module load cray-hdf5/1.12.0.7 
    module load cray-netcdf/4.7.4.7
@@ -15,7 +15,7 @@ To compile:
    Note, you only need to run preprocess once to generate the DART code. 
    Then to compile test_get_close_obs:
     
-   ./mkmf_test_get_close_obs
+   ./mkmf_test_get_close_obs -mpi
    make
 
 The location mod being used is in this directory:  location_mod.f90 

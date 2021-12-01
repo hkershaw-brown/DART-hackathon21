@@ -170,10 +170,9 @@ endif
 ! dump results
 write(close_obs_index_file, '(A,i4.4, A)') 'close_obs_ind_', my_task_id(), '.out'
 f1 = open_file(close_obs_index_file, action='write')
-do i = 1, obs_to_assimilate
-!  write(f1, '(<my_num_obs>I6)') close_obs_ind ! intel 
-  write(f1, *) close_obs_ind
-! should probably write distance also
+write(f1,'(A,i4)') 'num close obs', num_close_obs 
+do i = 1, num_close_obs
+  write(f1, *) close_obs_ind(i), close_obs_dist(i)
 enddo
 close(f1)
 
