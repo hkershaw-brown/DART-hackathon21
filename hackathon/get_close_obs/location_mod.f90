@@ -1486,14 +1486,14 @@ do obs = 1, num_obs_to_assimilate
                          text2=msgstring1, text3=msgstring2)
    endif
    
-   ! If num == 0, no point in going any further. 
-   if (gc%gtt(bt)%num == 0) return
-   
-   
-   ! local variable for what the maxdist is in this particular case.
-   this_maxdist = gc%gtt(bt)%maxdist
-
 enddo
+
+bt = 1 ! TODO HK more than one cutoff  
+! If num == 0, no point in going any further. 
+if (gc%gtt(bt)%num == 0) return
+
+! local variable for what the maxdist is in this particular case.
+this_maxdist = gc%gtt(bt)%maxdist
 
 GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
    ! Begin by figuring out which box the base_ob is in.
