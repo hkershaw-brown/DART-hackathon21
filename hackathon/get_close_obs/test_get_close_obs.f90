@@ -44,7 +44,7 @@ use mpi
 implicit none
 
 type(get_close_type)              :: gc_obs
-type(location_type)               :: base_obs_loc
+type(location_type), allocatable  :: base_obs_loc(:)
 type(location_type), allocatable  :: my_obs_loc(:)
 
 type(random_seq_type) :: r
@@ -52,10 +52,10 @@ real(r8)              :: x, y, z ! random numbers
 
 integer,  allocatable :: my_obs_kind(:) !< physical qty of ob, e.g. temperature
 integer,  allocatable :: my_obs_type(:) !< typs of ob, e.g. radiosonde
-real(r8), allocatable :: close_obs_dist(:)
-integer,  allocatable :: close_obs_ind(:)
-integer               :: base_obs_type
-integer               :: num_close_obs
+real(r8), allocatable :: close_obs_dist(:,:)
+integer,  allocatable :: close_obs_ind(:,:)
+integer,  allocatable :: base_obs_type(:)
+integer,  allocatable :: num_close_obs(:)
 integer               :: i, obs !< loop variables
 real(r8)              :: vert_loc !< vertical location - ignoring this for now
 integer               :: which_vert !< vertical location - ignoring this for now
@@ -72,7 +72,7 @@ integer :: io !< status for namelist read
 ! namelist with default values
 integer  :: my_num_obs  = 10 !< number of observations my processor owns
 integer  :: obs_to_assimilate = 100000  !< number of observations being assimilated
-integer  :: num_repeats = 10 !< how many times to run get_close_obs
+integer  :: num_repeats = 1 !< how many times to run get_close_obs
 integer  :: lon_start   = 0 !< longitude boundary
 integer  :: lon_end     = 359 !< longitude boundary
 integer  :: lat_start   = -80 !< lattitude boundary
@@ -109,13 +109,20 @@ if (my_task_id() == 0) then
    print*, 'cutoff', cutoff
 endif
 
-! -------  pick the base obs -------
+call init_random_seq(r, my_task_id()) ! for randomly generated obs locations
+
+! -------  setup the array of base obs -------
 ! In an assimilation the base_obs_loc would be different for 
 ! each step of obs_to_assimilate loop
-base_obs_loc = set_location(250.5818377_r8, 40.63913947_r8, 695.28760_r8, VERTISHEIGHT) 
-
-
-call init_random_seq(r, my_task_id()) ! for randomly generated obs locations
+allocate(base_obs_loc(obs_to_assimilate), base_obs_type(obs_to_assimilate))
+do i = 1, obs_to_assimilate
+   x = random_uniform(r)
+   y = random_uniform(r)
+   z = random_uniform(r)
+   lon = x*(lon_end - lon_start) + lon_start
+   lat = y*(lat_end - lat_start) + lat_start
+   base_obs_loc(i) = set_location(lon, lat, z, VERTISHEIGHT) 
+enddo
 
 ! Currently set to 2D distance
 ! &location_nml
@@ -127,7 +134,9 @@ vert_loc = 0
 
 ! set up arrays
 allocate(my_obs_loc(my_num_obs), my_obs_kind(my_num_obs), my_obs_type(my_num_obs))
-allocate(close_obs_dist(my_num_obs), close_obs_ind(my_num_obs))
+allocate(close_obs_dist(obs_to_assimilate, my_num_obs))
+allocate(close_obs_ind(obs_to_assimilate, my_num_obs))
+allocate(num_close_obs(obs_to_assimilate))
 
 ! fill observation locations
 do i = 1, my_num_obs
@@ -150,12 +159,10 @@ do i = 1, num_repeats
    !call get_close_init(gc_gc, my_num_obs, 2.0_r8*cutoff, my_state_loc, 2.0_r8*cutoff_list)
    call get_close_init(gc_obs, my_num_obs, 2.0_r8*cutoff, my_obs_loc)
 
-   do obs = 1, obs_to_assimilate
-     ! Note filter assim caches results if (obs location == previous obs location) if cutoff_list is not used
-     call get_close_obs(gc_obs, base_obs_loc, base_obs_type, my_obs_loc, &
+   ! Note filter assim caches results if (obs location == previous obs location) if cutoff_list is not used
+   call get_close_obs(gc_obs, obs_to_assimilate, base_obs_loc, base_obs_type, my_obs_loc, &
                      my_obs_kind, my_obs_type, num_close_obs, close_obs_ind,&
                      close_obs_dist) 
-   enddo
 
    call get_close_destroy(gc_obs) ! destroy structure
 
@@ -167,16 +174,9 @@ if(my_task_id()==0) then
    print*, 'Time per get_close_obs', (mpi_wtime() - start) / num_repeats
 endif
 
-! dump results
-write(close_obs_index_file, '(A,i4.4, A)') 'close_obs_ind_', my_task_id(), '.out'
-f1 = open_file(close_obs_index_file, action='write')
-write(f1,'(A,i4)') 'num close obs', num_close_obs 
-do i = 1, num_close_obs
-  write(f1, *) close_obs_ind(i), close_obs_dist(i)
-enddo
-close(f1)
-
-deallocate(my_obs_loc, my_obs_kind, my_obs_type, close_obs_dist, close_obs_ind)
+deallocate(my_obs_loc, my_obs_kind, my_obs_type)
+deallocate(close_obs_dist, close_obs_ind, num_close_obs)
+deallocate(base_obs_loc, base_obs_type)
 
 call finalize_mpi_utilities()
 

@@ -831,9 +831,9 @@ SEQUENTIAL_OBS: do i = 1, obs_ens_handle%num_vars
 
    if (.not. close_obs_caching) then
       if (timing(GC)) call start_timer(t_base(GC), t_items(GC), t_limit(GC), do_sync=.false.)
-      call get_close_obs(gc_obs, base_obs_loc, base_obs_type, &
-                         my_obs_loc, my_obs_kind, my_obs_type, &
-                         num_close_obs, close_obs_ind, close_obs_dist, ens_handle)
+      !call get_close_obs(gc_obs, base_obs_loc, base_obs_type, &
+      !                   my_obs_loc, my_obs_kind, my_obs_type, &
+      !                   num_close_obs, close_obs_ind, close_obs_dist, ens_handle)
       if (timing(GC)) then
          write(msgstring, '(A32,3I7)') 'gc_ob_NC:nobs,tot,obs# ', num_close_obs, obs_ens_handle%my_num_vars, keys(i)
          call read_timer(t_base(GC), msgstring, t_items(GC), t_limit(GC), do_sync=.false.)
@@ -848,9 +848,9 @@ SEQUENTIAL_OBS: do i = 1, obs_ens_handle%num_vars
          num_close_obs_cached = num_close_obs_cached + 1
       else
          if (timing(GC)) call start_timer(t_base(GC), t_items(GC), t_limit(GC), do_sync=.false.)
-         call get_close_obs(gc_obs, base_obs_loc, base_obs_type, &
-                            my_obs_loc, my_obs_kind, my_obs_type, &
-                            num_close_obs, close_obs_ind, close_obs_dist, ens_handle)
+       !  call get_close_obs(gc_obs, base_obs_loc, base_obs_type, &
+       !                     my_obs_loc, my_obs_kind, my_obs_type, &
+       !                     num_close_obs, close_obs_ind, close_obs_dist, ens_handle)
          if (timing(GC)) then
             write(msgstring, '(A32,3I7)') 'gc_ob_C: nobs,tot,obs# ', num_close_obs, obs_ens_handle%my_num_vars, keys(i)
             call read_timer(t_base(GC), msgstring, t_items(GC), t_limit(GC), do_sync=.false.)
@@ -958,9 +958,9 @@ SEQUENTIAL_OBS: do i = 1, obs_ens_handle%num_vars
    ! Find state variables on my process that are close to observation being assimilated
    if (.not. close_obs_caching) then
       if (timing(GC)) call start_timer(t_base(GC), t_items(GC), t_limit(GC), do_sync=.false.)
-      call get_close_state(gc_state, base_obs_loc, base_obs_type, &
-                           my_state_loc, my_state_kind, my_state_indx, &
-                           num_close_states, close_state_ind, close_state_dist, ens_handle)
+      !call get_close_state(gc_state, base_obs_loc, base_obs_type, &
+      !                     my_state_loc, my_state_kind, my_state_indx, &
+      !                     num_close_states, close_state_ind, close_state_dist, ens_handle)
       if (timing(GC)) then
          write(msgstring, '(A32,3I7)') 'gc_st_NC:nsts,tot,obs# ', num_close_states, ens_handle%my_num_vars, keys(i)
          call read_timer(t_base(GC), msgstring, t_items(GC), t_limit(GC), do_sync=.false.)
@@ -973,9 +973,9 @@ SEQUENTIAL_OBS: do i = 1, obs_ens_handle%num_vars
          num_close_states_cached = num_close_states_cached + 1
       else
          if (timing(GC)) call start_timer(t_base(GC), t_items(GC), t_limit(GC), do_sync=.false.)
-         call get_close_state(gc_state, base_obs_loc, base_obs_type, &
-                              my_state_loc, my_state_kind, my_state_indx, &
-                              num_close_states, close_state_ind, close_state_dist, ens_handle)
+         !call get_close_state(gc_state, base_obs_loc, base_obs_type, &
+         !                     my_state_loc, my_state_kind, my_state_indx, &
+         !                     num_close_states, close_state_ind, close_state_dist, ens_handle)
          if (timing(GC)) then
             write(msgstring, '(A32,3I7)') 'gc_st_C: nsts,tot,obs# ', num_close_states, ens_handle%my_num_vars, keys(i)
             call read_timer(t_base(GC), msgstring, t_items(GC), t_limit(GC), do_sync=.false.)

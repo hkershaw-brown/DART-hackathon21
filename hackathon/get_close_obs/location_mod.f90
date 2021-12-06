@@ -1363,7 +1363,7 @@ end subroutine get_close_destroy
 
 !----------------------------------------------------------------------------
 
-subroutine get_close_obs(gc, base_loc, base_type, locs, loc_qtys, loc_types, &
+subroutine get_close_obs(gc, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, loc_types, &
                          num_close, close_ind, dist, ens_handle)
 
 ! The specific type of the base observation, plus the generic kinds list
@@ -1371,20 +1371,21 @@ subroutine get_close_obs(gc, base_loc, base_type, locs, loc_qtys, loc_types, &
 ! distance computation is needed.
 
 type(get_close_type),          intent(in)  :: gc
-type(location_type),           intent(inout) :: base_loc, locs(:)
-integer,                       intent(in)  :: base_type, loc_qtys(:), loc_types(:)
-integer,                       intent(out) :: num_close, close_ind(:)
-real(r8),            optional, intent(out) :: dist(:)
+integer,                       intent(in)  :: num_obs_to_assimilate
+type(location_type),           intent(inout) :: base_loc(:), locs(:)
+integer,                       intent(in)  :: base_type(:), loc_qtys(:), loc_types(:)
+integer,                       intent(out) :: num_close(:), close_ind(:,:)
+real(r8),            optional, intent(out) :: dist(:,:)
 type(ensemble_type), optional, intent(in)  :: ens_handle
 
-call get_close(gc, base_loc, base_type, locs, loc_qtys, &
+call get_close(gc, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, &
                num_close, close_ind, dist, ens_handle)
 
 end subroutine get_close_obs
 
 !----------------------------------------------------------------------------
 
-subroutine get_close_state(gc, base_loc, base_type, locs, loc_qtys, loc_indx, &
+subroutine get_close_state(gc, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, loc_indx, &
                            num_close, close_ind, dist, ens_handle)
 
 ! The specific type of the base observation, plus the generic kinds list
@@ -1392,21 +1393,22 @@ subroutine get_close_state(gc, base_loc, base_type, locs, loc_qtys, loc_indx, &
 ! distance computation is needed.
 
 type(get_close_type),          intent(in)  :: gc
-type(location_type),           intent(inout)  :: base_loc, locs(:)
-integer,                       intent(in)  :: base_type, loc_qtys(:)
+integer,                       intent(in)  :: num_obs_to_assimilate
+type(location_type),           intent(inout)  :: base_loc(:), locs(:)
+integer,                       intent(in)  :: base_type(:), loc_qtys(:)
 integer(i8),                   intent(in)  :: loc_indx(:)
-integer,                       intent(out) :: num_close, close_ind(:)
-real(r8),            optional, intent(out) :: dist(:)
+integer,                       intent(out) :: num_close(:), close_ind(:,:)
+real(r8),            optional, intent(out) :: dist(:,:)
 type(ensemble_type), optional, intent(in)  :: ens_handle
 
-call get_close(gc, base_loc, base_type, locs, loc_qtys, &
+call get_close(gc, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, &
                num_close, close_ind, dist, ens_handle)
 
 end subroutine get_close_state
 
 !----------------------------------------------------------------------------
 
-subroutine get_close(gc, base_loc, base_type, locs, loc_qtys, &
+subroutine get_close(gc, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, &
                      num_close, close_ind, dist, ens_handle)
 
 ! The specific type of the base observation, plus the generic kinds list
@@ -1414,10 +1416,11 @@ subroutine get_close(gc, base_loc, base_type, locs, loc_qtys, &
 ! distance computation is needed.
 
 type(get_close_type),          intent(in)  :: gc
-type(location_type),           intent(inout)  :: base_loc, locs(:)
-integer,                       intent(in)  :: base_type, loc_qtys(:)
-integer,                       intent(out) :: num_close, close_ind(:)
-real(r8),            optional, intent(out) :: dist(:)
+integer,                       intent(in)  :: num_obs_to_assimilate
+type(location_type),           intent(inout)  :: base_loc(:), locs(:)
+integer,                       intent(in)  :: base_type(:), loc_qtys(:)
+integer,                       intent(out) :: num_close(:), close_ind(:,:)
+real(r8),            optional, intent(out) :: dist(:,:)
 type(ensemble_type), optional, intent(in)  :: ens_handle
 
 ! If dist is NOT present, just find everybody in a box, put them in the list,
@@ -1425,10 +1428,11 @@ type(ensemble_type), optional, intent(in)  :: ens_handle
 
 integer :: lon_box, lat_box, i, j, k, n_lon, lon_ind, n_in_box, st, t_ind, bt
 real(r8) :: this_dist, this_maxdist
+integer  :: obs
 
 ! Variables needed for comparing against correct case
-integer :: cnum_close, cclose_ind(size(locs))
-real(r8) :: cdist(size(locs))
+integer :: cnum_close(num_obs_to_assimilate), cclose_ind(num_obs_to_assimilate,size(locs))
+real(r8) :: cdist(num_obs_to_assimilate, size(locs))
 
 
 ! First, set the intent out arguments to a missing value
@@ -1437,175 +1441,192 @@ close_ind = -99
 if(present(dist)) dist = -99.0_r8
 this_dist = 999999.0_r8   ! something big.
 
-! handle identity obs correctly -- only support them if there are no
-! per-obs-type cutoffs.  identity obs don't have a specific type, they
-! only have a generic kind based on what index into the state vector is
-! specified.  if this is absolutely needed by someone, i can rejigger the
-! code to try to use the default cutoff for identity obs, but it's tricky
-! to identify which obs type is using the default.  in theory it's possible
-! to specify a default cutoff and then specify a per-type cutoff for every
-! other type in the system.  in that case i don't have a map entry for the
-! default, and it's a pain to construct one.  so i'm punting for now.
-if (base_type < 0) then
-   if (gc%nt > 1) then
-      write(msgstring,  '(A)') 'no support for identity obs if per-obs-type cutoffs are specified'
-      write(msgstring1, '(A)') 'contact dart support if you have a need for this combination'
-      call error_handler(E_ERR, 'get_close', msgstring, source, text2=msgstring1)
+do obs = 1, num_obs_to_assimilate
+
+   ! handle identity obs correctly -- only support them if there are no
+   ! per-obs-type cutoffs.  identity obs don't have a specific type, they
+   ! only have a generic kind based on what index into the state vector is
+   ! specified.  if this is absolutely needed by someone, i can rejigger the
+   ! code to try to use the default cutoff for identity obs, but it's tricky
+   ! to identify which obs type is using the default.  in theory it's possible
+   ! to specify a default cutoff and then specify a per-type cutoff for every
+   ! other type in the system.  in that case i don't have a map entry for the
+   ! default, and it's a pain to construct one.  so i'm punting for now.
+   if (base_type(obs) < 0) then
+      if (gc%nt > 1) then
+         write(msgstring,  '(A)') 'no support for identity obs if per-obs-type cutoffs are specified'
+         write(msgstring1, '(A)') 'contact dart support if you have a need for this combination'
+         call error_handler(E_ERR, 'get_close', msgstring, source, text2=msgstring1)
+      endif
+      bt = 1
+   else
+      ! map from type index to gtt index
+      if (base_type(obs) < 1 .or. base_type(obs) > size(gc%type_to_cutoff_map)) then
+         write(msgstring,'(A,I8)')'base_type out of range, is ', base_type(obs)
+         write(msgstring1,'(A,2I8)')'must be between ', 1, size(gc%type_to_cutoff_map)
+         call write_location (0, base_loc(obs), charstring=msgstring2)
+         call error_handler(E_ERR, 'get_close', msgstring, source, &
+                            text2=msgstring1, text3=msgstring2)
+      endif
+      bt = gc%type_to_cutoff_map(base_type(obs))
+      if (bt < 1 .or. bt > gc%nt) then
+         write(msgstring,'(A,I8)')'mapped type index out of range, is ', bt
+         write(msgstring1,'(A,2I8)')'must be between ', 1, gc%nt
+         write(msgstring2, '(A)')'internal error, should not happen.  Contact DART Support'
+         call error_handler(E_ERR, 'get_close', msgstring, source, &
+                            text2=msgstring1, text3=msgstring2)
+      endif
    endif
-   bt = 1
-else
-   ! map from type index to gtt index
-   if (base_type < 1 .or. base_type > size(gc%type_to_cutoff_map)) then
-      write(msgstring,'(A,I8)')'base_type out of range, is ', base_type
-      write(msgstring1,'(A,2I8)')'must be between ', 1, size(gc%type_to_cutoff_map)
-      call write_location (0, base_loc, charstring=msgstring2)
+   
+   ! the list of locations in the locs() argument must be the same
+   ! as the list of locations passed into get_close_init(), so
+   ! gc%gtt(bt)%num and size(locs) better be the same.   if the list 
+   ! changes you have to destroy the old gc and init a new one.
+   if (size(locs) /= gc%gtt(bt)%num) then
+      write(msgstring,'(A)')'locs() array must match one passed to get_close_init()'
+      write(msgstring1,'(A,2I8)')'init size, current list size: ', gc%gtt(bt)%num, size(locs)
+      write(msgstring2,'(A,I8)')'bt = ', bt
       call error_handler(E_ERR, 'get_close', msgstring, source, &
                          text2=msgstring1, text3=msgstring2)
    endif
-   bt = gc%type_to_cutoff_map(base_type)
-   if (bt < 1 .or. bt > gc%nt) then
-      write(msgstring,'(A,I8)')'mapped type index out of range, is ', bt
-      write(msgstring1,'(A,2I8)')'must be between ', 1, gc%nt
-      write(msgstring2, '(A)')'internal error, should not happen.  Contact DART Support'
-      call error_handler(E_ERR, 'get_close', msgstring, source, &
-                         text2=msgstring1, text3=msgstring2)
-   endif
-endif
+   
+   ! If num == 0, no point in going any further. 
+   if (gc%gtt(bt)%num == 0) return
+   
+   
+   ! local variable for what the maxdist is in this particular case.
+   this_maxdist = gc%gtt(bt)%maxdist
 
-! the list of locations in the locs() argument must be the same
-! as the list of locations passed into get_close_init(), so
-! gc%gtt(bt)%num and size(locs) better be the same.   if the list 
-! changes you have to destroy the old gc and init a new one.
-if (size(locs) /= gc%gtt(bt)%num) then
-   write(msgstring,'(A)')'locs() array must match one passed to get_close_init()'
-   write(msgstring1,'(A,2I8)')'init size, current list size: ', gc%gtt(bt)%num, size(locs)
-   write(msgstring2,'(A,I8)')'bt = ', bt
-   call error_handler(E_ERR, 'get_close', msgstring, source, &
-                      text2=msgstring1, text3=msgstring2)
-endif
-
-! If num == 0, no point in going any further. 
-if (gc%gtt(bt)%num == 0) return
-
-
-! local variable for what the maxdist is in this particular case.
-this_maxdist = gc%gtt(bt)%maxdist
+enddo
 
 !--------------------------------------------------------------
 ! For validation, it is useful to be able to compare against exact
 ! exhaustive search
 if(COMPARE_TO_CORRECT) then
-   cnum_close = 0
-   do i = 1, gc%gtt(bt)%num 
-      if (locs(i)%which_vert /= base_loc%which_vert) then
-         this_dist = get_dist(base_loc, locs(i), base_type, loc_qtys(i), &
-                     no_vert = .true.)
-      else
-         this_dist = get_dist(base_loc, locs(i), base_type, loc_qtys(i))
-      endif
-      if(this_dist <= this_maxdist) then
-         ! Add this location to correct list
-         cnum_close = cnum_close + 1
-         cclose_ind(cnum_close) = i
-         cdist(cnum_close) = this_dist
-      endif
+
+   do obs = 1, num_obs_to_assimilate
+      cnum_close = 0
+      do i = 1, gc%gtt(bt)%num 
+         if (locs(i)%which_vert /= base_loc(obs)%which_vert) then
+            this_dist = get_dist(base_loc(obs), locs(i), base_type(obs), loc_qtys(i), &
+                        no_vert = .true.)
+         else
+            this_dist = get_dist(base_loc(obs), locs(i), base_type(obs), loc_qtys(i))
+         endif
+         if(this_dist <= this_maxdist) then
+            ! Add this location to correct list
+            cnum_close = cnum_close + 1
+            cclose_ind(obs,cnum_close) = i
+            cdist(obs,cnum_close) = this_dist
+         endif
+      end do
    end do
+
 endif
 
 !--------------------------------------------------------------
 
-! Begin by figuring out which box the base_ob is in.
-! Note that the boxes will not cover the entire sphere for sets of locations 
-! that cover less than a hemisphere. In that case you expect to get out of range
-! box numbers if the location is outside the covered region. But you do have to 
-! handle the case of a location which is exactly on the top latitude boundary.  
-! Include it in the top box if it is in the next box but still within N*epsilon 
-! of the lower edge.
-! FIXME: the longitude tests don't try to be smart about this, probably
-! because of the complication of wrapping around the greenwich line.
-! it just bins all values in box nlon+1 into box nlon.  we could do 
-! the same thing here.
-lon_box = get_lon_box(gc%gtt(bt), base_loc%lon)
-lat_box = floor((base_loc%lat - gc%gtt(bt)%bot_lat) / gc%gtt(bt)%lat_width) + 1
-! FIXME: cheaper to test now or later?
-!if ((lat_box == nlat+1) .and. &
-!    (base_loc%lat <= gc%gtt(bt)%top_lat + EDGE_TOLERANCE)) then
-!!DEBUG write(*,'(A,4(G25.16,1X))') 'add to top lat_box', base_loc%lat, gc%gtt(bt)%top_lat, &
-!!DEBUG                             epsilon(0.0_r8), (base_loc%lat - gc%gtt(bt)%top_lat)/epsilon(0.0_r8)
-!   lat_box = nlat
-!endif
-! consistent with the current longitude code in get_lon_box():
-if (lat_box == nlat+1) lat_box = nlat
 
-!  If it is not in any box, then it is more than the maxdist away from everybody
-if(lat_box > nlat .or. lat_box < 1 .or. lon_box < 0) return
-
-! Next, loop through to find each box that is close to this box
-do j = 1, nlat
-   n_lon = gc%gtt(bt)%lon_offset(lat_box, j)
-   if(n_lon >= 0) then
-      LON_OFFSET: do i = -1 * n_lon, n_lon
-         lon_ind = lon_box + i
-         ! Search a box at this latitude j offset in longitude by i
-         ! If domain is cyclic, need to wrap around
-         if(gc%gtt(bt)%lon_cyclic) then
-            if(lon_ind > nlon) lon_ind = lon_ind - nlon
-            if(lon_ind < 1) lon_ind = lon_ind + nlon
-         else
-            ! Domain is not cyclic, don't search if outside of range
-            if(lon_ind > nlon .or. lon_ind < 1) cycle LON_OFFSET
-         endif
-         ! Box to search is lon_ind, j
-         n_in_box = gc%gtt(bt)%count(lon_ind, j)
-         st = gc%gtt(bt)%start(lon_ind, j)
-         ! Loop to check how close all locs in the box are; add those that are close
-         do k = 1, n_in_box
-
-            ! SHOULD ADD IN OPTIONAL ARGUMENT FOR DOING THIS!!!
-            ! Could avoid adding any that have nums lower than base_ob???
-            t_ind = gc%gtt(bt)%loc_box(st - 1 + k)
-
-            if(.not. present(dist)) then
-               ! Dist isn't present; add this ob to list without computing distance
-               num_close = num_close + 1
-               close_ind(num_close) = t_ind
+GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
+   ! Begin by figuring out which box the base_ob is in.
+   ! Note that the boxes will not cover the entire sphere for sets of locations 
+   ! that cover less than a hemisphere. In that case you expect to get out of range
+   ! box numbers if the location is outside the covered region. But you do have to 
+   ! handle the case of a location which is exactly on the top latitude boundary.  
+   ! Include it in the top box if it is in the next box but still within N*epsilon 
+   ! of the lower edge.
+   ! FIXME: the longitude tests don't try to be smart about this, probably
+   ! because of the complication of wrapping around the greenwich line.
+   ! it just bins all values in box nlon+1 into box nlon.  we could do 
+   ! the same thing here.
+   lon_box = get_lon_box(gc%gtt(bt), base_loc(obs)%lon)
+   lat_box = floor((base_loc(obs)%lat - gc%gtt(bt)%bot_lat) / gc%gtt(bt)%lat_width) + 1
+   ! FIXME: cheaper to test now or later?
+   !if ((lat_box == nlat+1) .and. &
+   !    (base_loc%lat <= gc%gtt(bt)%top_lat + EDGE_TOLERANCE)) then
+   !!DEBUG write(*,'(A,4(G25.16,1X))') 'add to top lat_box', base_loc%lat, gc%gtt(bt)%top_lat, &
+   !!DEBUG                             epsilon(0.0_r8), (base_loc%lat - gc%gtt(bt)%top_lat)/epsilon(0.0_r8)
+   !   lat_box = nlat
+   !endif
+   ! consistent with the current longitude code in get_lon_box():
+   if (lat_box == nlat+1) lat_box = nlat
+   
+   !  If it is not in any box, then it is more than the maxdist away from everybody
+   if(lat_box > nlat .or. lat_box < 1 .or. lon_box < 0) return
+   
+   ! Next, loop through to find each box that is close to this box
+   do j = 1, nlat
+      n_lon = gc%gtt(bt)%lon_offset(lat_box, j)
+      if(n_lon >= 0) then
+         LON_OFFSET: do i = -1 * n_lon, n_lon
+            lon_ind = lon_box + i
+            ! Search a box at this latitude j offset in longitude by i
+            ! If domain is cyclic, need to wrap around
+            if(gc%gtt(bt)%lon_cyclic) then
+               if(lon_ind > nlon) lon_ind = lon_ind - nlon
+               if(lon_ind < 1) lon_ind = lon_ind + nlon
             else
-               if(base_loc%which_vert == locs(t_ind)%which_vert) then
-                  ! Can compute total distance here if verts are the same
-                  this_dist = get_dist(base_loc, locs(t_ind), base_type, loc_qtys(t_ind))
-               else 
-                  ! Otherwise can just get horizontal distance
-                  this_dist = get_dist(base_loc, locs(t_ind), base_type, loc_qtys(t_ind), &
-                     no_vert = .true.)
-               endif
-
-               ! If this locations distance is less than cutoff, add it to the list
-               if(this_dist <= this_maxdist) then
-                  num_close = num_close + 1
-                  close_ind(num_close) = t_ind
-                  dist(num_close) = this_dist
-               endif
+               ! Domain is not cyclic, don't search if outside of range
+               if(lon_ind > nlon .or. lon_ind < 1) cycle LON_OFFSET
             endif
-         end do
-      end do LON_OFFSET
-   endif
-end do
+            ! Box to search is lon_ind, j
+            n_in_box = gc%gtt(bt)%count(lon_ind, j)
+            st = gc%gtt(bt)%start(lon_ind, j)
+            ! Loop to check how close all locs in the box are; add those that are close
+            do k = 1, n_in_box
+   
+               ! SHOULD ADD IN OPTIONAL ARGUMENT FOR DOING THIS!!!
+               ! Could avoid adding any that have nums lower than base_ob???
+               t_ind = gc%gtt(bt)%loc_box(st - 1 + k)
+   
+               if(.not. present(dist)) then
+                  ! Dist isn't present; add this ob to list without computing distance
+                  num_close(obs) = num_close(obs) + 1
+                  close_ind(obs, num_close(obs)) = t_ind
+               else
+                  if(base_loc(obs)%which_vert == locs(t_ind)%which_vert) then
+                     ! Can compute total distance here if verts are the same
+                     this_dist = get_dist(base_loc(obs), locs(t_ind), base_type(obs), loc_qtys(t_ind))
+                  else 
+                     ! Otherwise can just get horizontal distance
+                     this_dist = get_dist(base_loc(obs), locs(t_ind), base_type(obs), loc_qtys(t_ind), &
+                        no_vert = .true.)
+                  endif
+   
+                  ! If this locations distance is less than cutoff, add it to the list
+                  if(this_dist <= this_maxdist) then
+                     num_close(obs) = num_close(obs) + 1
+                     close_ind(obs, num_close(obs)) = t_ind
+                     dist(obs, num_close(obs)) = this_dist
+                  endif
+               endif
+            end do
+         end do LON_OFFSET
+      endif
+   end do
+
+enddo GLOBAL_OBS
+
 
 !------------------------ Verify by comparing to exhaustive search --------------
 if(COMPARE_TO_CORRECT) then
-   ! Do comparisons against full search
-   if((num_close /= cnum_close) .and. present(dist)) then
-      write(msgstring, *) 'get_close (', num_close, ') should equal exhaustive search (', cnum_close, ')'
-      call error_handler(E_ERR, 'get_close', msgstring, source, &
-           text2='optional arg "dist" is present; we are computing exact distances', &
-           text3='the exhaustive search should find an identical number of locations')
-   else if (num_close < cnum_close) then
-      write(msgstring, *) 'get_close (', num_close, ') should not be smaller than exhaustive search (', cnum_close, ')'
-      call error_handler(E_ERR, 'get_close', msgstring, source, &
-           text2='optional arg "dist" not present; we are returning a superset of close locations', &
-           text3='the exhaustive search should find an equal or lesser number of locations')
-   endif
+
+   do obs = 1, num_obs_to_assimilate
+      ! Do comparisons against full search
+      if((num_close(obs) /= cnum_close(obs)) .and. present(dist)) then
+         write(msgstring, *) 'get_close (', num_close, ') should equal exhaustive search (', cnum_close, ')'
+         call error_handler(E_ERR, 'get_close', msgstring, source, &
+              text2='optional arg "dist" is present; we are computing exact distances', &
+              text3='the exhaustive search should find an identical number of locations')
+      else if (num_close(obs) < cnum_close(obs)) then
+         write(msgstring, *) 'get_close (', num_close, ') should not be smaller than exhaustive search (', cnum_close, ')'
+         call error_handler(E_ERR, 'get_close', msgstring, source, &
+              text2='optional arg "dist" not present; we are returning a superset of close locations', &
+              text3='the exhaustive search should find an equal or lesser number of locations')
+      endif
+   enddo
 endif
+
 !--------------------End of verify by comparing to exhaustive search --------------
 
 end subroutine get_close
