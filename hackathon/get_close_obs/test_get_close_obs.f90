@@ -134,8 +134,8 @@ vert_loc = 0
 
 ! set up arrays
 allocate(my_obs_loc(my_num_obs), my_obs_kind(my_num_obs), my_obs_type(my_num_obs))
-allocate(close_obs_dist(obs_to_assimilate, my_num_obs))
-allocate(close_obs_ind(obs_to_assimilate, my_num_obs))
+allocate(close_obs_dist(my_num_obs, obs_to_assimilate))
+allocate(close_obs_ind(my_num_obs, obs_to_assimilate))
 allocate(num_close_obs(obs_to_assimilate))
 
 ! fill observation locations

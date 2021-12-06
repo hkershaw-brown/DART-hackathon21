@@ -1431,8 +1431,8 @@ real(r8) :: this_dist, this_maxdist
 integer  :: obs
 
 ! Variables needed for comparing against correct case
-integer :: cnum_close(num_obs_to_assimilate), cclose_ind(num_obs_to_assimilate,size(locs))
-real(r8) :: cdist(num_obs_to_assimilate, size(locs))
+integer,  allocatable :: cnum_close(:), cclose_ind(:,:)
+real(r8), allocatable :: cdist(:,:)
 
 
 ! First, set the intent out arguments to a missing value
@@ -1504,6 +1504,10 @@ enddo
 ! exhaustive search
 if(COMPARE_TO_CORRECT) then
 
+  allocate(cnum_close(num_obs_to_assimilate), cclose_ind(size(locs), num_obs_to_assimilate))
+  allocate(cdist(size(locs),num_obs_to_assimilate))
+
+
    do obs = 1, num_obs_to_assimilate
       cnum_close = 0
       do i = 1, gc%gtt(bt)%num 
@@ -1516,8 +1520,8 @@ if(COMPARE_TO_CORRECT) then
          if(this_dist <= this_maxdist) then
             ! Add this location to correct list
             cnum_close = cnum_close + 1
-            cclose_ind(obs,cnum_close) = i
-            cdist(obs,cnum_close) = this_dist
+            cclose_ind(cnum_close, obs) = i
+            cdist(cnum_close, obs) = this_dist
          endif
       end do
    end do
@@ -1596,8 +1600,8 @@ GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
                   ! If this locations distance is less than cutoff, add it to the list
                   if(this_dist <= this_maxdist) then
                      num_close(obs) = num_close(obs) + 1
-                     close_ind(obs, num_close(obs)) = t_ind
-                     dist(obs, num_close(obs)) = this_dist
+                     close_ind(num_close(obs), obs) = t_ind
+                     dist(num_close(obs),obs) = this_dist
                   endif
                endif
             end do
@@ -1625,6 +1629,8 @@ if(COMPARE_TO_CORRECT) then
               text3='the exhaustive search should find an equal or lesser number of locations')
       endif
    enddo
+
+   deallocate(cnum_close, cclose_ind, cdist)
 endif
 
 !--------------------End of verify by comparing to exhaustive search --------------
