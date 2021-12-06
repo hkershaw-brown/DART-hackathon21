@@ -30,6 +30,8 @@ use random_seq_mod, only : random_seq_type, init_random_seq, random_uniform
 use   obs_kind_mod, only : get_num_types_of_obs, get_name_for_type_of_obs, get_index_for_type_of_obs
 use mpi_utilities_mod, only : my_task_id, task_count
 use ensemble_manager_mod, only : ensemble_type
+use assert_mod, only : assert_equal
+use sort_mod, only : sort
 
 implicit none
 private
@@ -43,7 +45,8 @@ public :: location_type, get_location, set_location, &
           set_vertical, is_vertical, get_vertical_localization_coord, get_close, &
           set_vertical_localization_coord, convert_vertical_obs, convert_vertical_state, &
           VERTISUNDEF, VERTISSURFACE, VERTISLEVEL, VERTISPRESSURE, &
-          VERTISHEIGHT, VERTISSCALEHEIGHT, print_get_close_type
+          VERTISHEIGHT, VERTISSCALEHEIGHT, print_get_close_type, &
+          gc_compare_to_correct
 
 
 character(len=*), parameter :: source = 'threed_sphere/location_mod.f90'
@@ -158,9 +161,6 @@ real(r8) :: my_acos(-ACOS_LIMIT:ACOS_LIMIT)
 ! included in the last box.  In particular, for global grids this
 ! preserves locations which are at exactly 90.0 degrees latitude.
 real(r8), parameter :: EDGE_TOLERANCE = 100.0_r8 * epsilon(0.0_r8)
-
-! Option for verification using exhaustive search
-logical :: COMPARE_TO_CORRECT = .false.    ! normally false
 
 !-----------------------------------------------------------------
 ! Namelist with default values
@@ -1430,10 +1430,6 @@ integer :: lon_box, lat_box, i, j, k, n_lon, lon_ind, n_in_box, st, t_ind, bt
 real(r8) :: this_dist, this_maxdist
 integer  :: obs
 
-! Variables needed for comparing against correct case
-integer,  allocatable :: cnum_close(:), cclose_ind(:,:)
-real(r8), allocatable :: cdist(:,:)
-
 
 ! First, set the intent out arguments to a missing value
 num_close = 0
@@ -1498,38 +1494,6 @@ do obs = 1, num_obs_to_assimilate
    this_maxdist = gc%gtt(bt)%maxdist
 
 enddo
-
-!--------------------------------------------------------------
-! For validation, it is useful to be able to compare against exact
-! exhaustive search
-if(COMPARE_TO_CORRECT) then
-
-  allocate(cnum_close(num_obs_to_assimilate), cclose_ind(size(locs), num_obs_to_assimilate))
-  allocate(cdist(size(locs),num_obs_to_assimilate))
-
-
-   do obs = 1, num_obs_to_assimilate
-      cnum_close = 0
-      do i = 1, gc%gtt(bt)%num 
-         if (locs(i)%which_vert /= base_loc(obs)%which_vert) then
-            this_dist = get_dist(base_loc(obs), locs(i), base_type(obs), loc_qtys(i), &
-                        no_vert = .true.)
-         else
-            this_dist = get_dist(base_loc(obs), locs(i), base_type(obs), loc_qtys(i))
-         endif
-         if(this_dist <= this_maxdist) then
-            ! Add this location to correct list
-            cnum_close = cnum_close + 1
-            cclose_ind(cnum_close, obs) = i
-            cdist(cnum_close, obs) = this_dist
-         endif
-      end do
-   end do
-
-endif
-
-!--------------------------------------------------------------
-
 
 GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
    ! Begin by figuring out which box the base_ob is in.
@@ -1611,31 +1575,74 @@ GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
 
 enddo GLOBAL_OBS
 
+end subroutine get_close
 
-!------------------------ Verify by comparing to exhaustive search --------------
-if(COMPARE_TO_CORRECT) then
 
-   do obs = 1, num_obs_to_assimilate
-      ! Do comparisons against full search
-      if((num_close(obs) /= cnum_close(obs)) .and. present(dist)) then
-         write(msgstring, *) 'get_close (', num_close, ') should equal exhaustive search (', cnum_close, ')'
-         call error_handler(E_ERR, 'get_close', msgstring, source, &
-              text2='optional arg "dist" is present; we are computing exact distances', &
-              text3='the exhaustive search should find an identical number of locations')
-      else if (num_close(obs) < cnum_close(obs)) then
-         write(msgstring, *) 'get_close (', num_close, ') should not be smaller than exhaustive search (', cnum_close, ')'
-         call error_handler(E_ERR, 'get_close', msgstring, source, &
-              text2='optional arg "dist" not present; we are returning a superset of close locations', &
-              text3='the exhaustive search should find an equal or lesser number of locations')
-      endif
-   enddo
+!--------------------------------------------------------------
+! For validation, it is useful to be able to compare against exact
+! exhaustive search
+subroutine gc_compare_to_correct(tolerance, gc, my_num_obs, base_loc, base_type, locs, loc_qtys, loc_types, num_close, close_ind, dist)
 
-   deallocate(cnum_close, cclose_ind, cdist)
+real(r8),             intent(in) :: tolerance
+type(get_close_type), intent(in) :: gc
+integer,              intent(in) :: my_num_obs
+type(location_type),  intent(in) :: base_loc, locs(my_num_obs)
+integer,              intent(in) :: base_type, loc_qtys(my_num_obs), loc_types(my_num_obs)
+integer,              intent(in) :: num_close, close_ind(my_num_obs)
+real(r8),             intent(in) :: dist(my_num_obs) ! this is not getting checked
+
+! Variables needed for comparing against correct case
+integer  :: cnum_close, cclose_ind(my_num_obs), sorted_ind(my_num_obs)
+real(r8) :: cdist(my_num_obs), sorted_dist(my_num_obs)
+
+real(r8) :: this_dist, this_maxdist
+
+integer :: i
+integer :: bt = 1 ! fix at 1 base type
+
+! These need to match what is set in get_close
+cclose_ind = -99
+cdist  = -99.0_r8
+! local variable for what the maxdist is in this particular case.
+this_maxdist = gc%gtt(bt)%maxdist
+
+cnum_close = 0
+do i = 1, gc%gtt(bt)%num
+   if (locs(i)%which_vert /= base_loc%which_vert) then
+      this_dist = get_dist(base_loc, locs(i), base_type, loc_qtys(i), &
+                  no_vert = .true.)
+   else
+      this_dist = get_dist(base_loc, locs(i), base_type, loc_qtys(i))
+   endif
+   if(this_dist <= this_maxdist) then
+      ! Add this location to correct list
+      cnum_close = cnum_close + 1
+      cclose_ind(cnum_close) = i
+      cdist(cnum_close) = this_dist
+   endif
+enddo
+
+! Do comparisons against full search
+if(num_close /= cnum_close) then
+   write(msgstring, *) 'get_close (', num_close, ') should equal exhaustive search (', cnum_close, ')'
+   call error_handler(E_ERR, 'get_close', msgstring, source, &
+        text2='optional arg "dist" is present; we are computing exact distances', &
+        text3='the exhaustive search should find an identical number of locations')
 endif
 
-!--------------------End of verify by comparing to exhaustive search --------------
+! sort and compare indicies and distances
+cclose_ind = sort(cclose_ind)
+sorted_ind = sort(close_ind)
+cdist = sort(cdist)
+sorted_dist = sort(dist)
 
-end subroutine get_close
+call assert_equal(cclose_ind, sorted_ind, 'indicies not the same')
+
+do i = 1, my_num_obs
+  if (abs(cdist(i) - sorted_dist(i)) > tolerance) print*, 'not equal', cdist(i), sorted_dist(i)
+enddo
+
+end subroutine gc_compare_to_correct
 
 !--------------------------------------------------------------------------
 

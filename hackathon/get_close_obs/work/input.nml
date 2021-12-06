@@ -1,7 +1,9 @@
 &test_get_close_obs_nml
-   my_num_obs = 10000,
-   obs_to_assimilate = 5,
+   my_num_obs = 1000,
+   obs_to_assimilate = 500,
    num_repeats = 1
+   cutoff = 0.2
+   compare_to_correct = .true.
 /
 
 &location_nml

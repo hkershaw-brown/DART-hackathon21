@@ -32,7 +32,7 @@ program test_get_close_obs
 
 use location_mod,         only : location_type, get_close_type, get_close_obs, get_close_init, &
                                  VERTISUNDEF, set_location, get_close_init, get_close_destroy, &
-                                 VERTISHEIGHT
+                                 VERTISHEIGHT, gc_compare_to_correct
 use types_mod,            only : r8, MISSING_R8, PI
 use ensemble_manager_mod, only : ensemble_type, get_my_vars, get_my_num_vars, init_ensemble_manager 
 use mpi_utilities_mod,    only : initialize_mpi_utilities, finalize_mpi_utilities, my_task_id
@@ -56,7 +56,7 @@ real(r8), allocatable :: close_obs_dist(:,:)
 integer,  allocatable :: close_obs_ind(:,:)
 integer,  allocatable :: base_obs_type(:)
 integer,  allocatable :: num_close_obs(:)
-integer               :: i, obs !< loop variables
+integer               :: i, ob !< loop variables
 real(r8)              :: vert_loc !< vertical location - ignoring this for now
 integer               :: which_vert !< vertical location - ignoring this for now
 real(r8)              :: lon !< longitude
@@ -78,6 +78,8 @@ integer  :: lon_end     = 359 !< longitude boundary
 integer  :: lat_start   = -80 !< lattitude boundary
 integer  :: lat_end     = 80 !< lattitude boundary
 real(r8) :: cutoff      = 0.15 !< cutoff in radians 
+logical  :: compare_to_correct = .false. !< run the brute force get_close_obs
+real(r8) :: tolerance   = epsilon(0.0_r8)  !< for compare to correct, tolarance for dists
 
 ! cutoff is in radians; for the earth, 0.05 is about 300 km. 
 ! cutoff is defined to be the half-width of the localization radius,
@@ -90,7 +92,8 @@ real(r8) :: cutoff      = 0.15 !< cutoff in radians
 !  mpas 0.1
 !  pop 0.2
 
-namelist /test_get_close_obs_nml/ my_num_obs, obs_to_assimilate, num_repeats, lon_start, lon_end, lat_start, lat_end, cutoff
+namelist /test_get_close_obs_nml/ my_num_obs, obs_to_assimilate, num_repeats, lon_start, lon_end, &
+                                  lat_start, lat_end, cutoff, compare_to_correct
 
 call initialize_mpi_utilities('test') ! do we even need mpi?
 
@@ -163,6 +166,14 @@ do i = 1, num_repeats
    call get_close_obs(gc_obs, obs_to_assimilate, base_obs_loc, base_obs_type, my_obs_loc, &
                      my_obs_kind, my_obs_type, num_close_obs, close_obs_ind,&
                      close_obs_dist) 
+
+   if (compare_to_correct) then 
+      do ob = 1, obs_to_assimilate
+        call gc_compare_to_correct(tolerance, gc_obs, my_num_obs, base_obs_loc(ob), base_obs_type(ob), my_obs_loc, &
+                                   my_obs_kind, my_obs_type, num_close_obs(ob), close_obs_ind(:,ob), &
+                                    close_obs_dist(:, ob)) 
+      enddo
+   endif
 
    call get_close_destroy(gc_obs) ! destroy structure
 
