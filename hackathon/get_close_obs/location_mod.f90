@@ -419,6 +419,54 @@ endif
 end subroutine initialize_module
 
 !----------------------------------------------------------------------------
+function get_dist_horiz(loc1, loc2)
+
+! returns the horizontal distance between 2 locations in units of radians.
+
+type(location_type), intent(in) :: loc1, loc2
+real(r8)                        :: get_dist_horiz
+
+real(r8) :: lon_dif, vert_dist, rtemp
+integer  :: lat1_ind, lat2_ind, lon_ind, temp  ! indexes into lookup tables
+
+if ( .not. module_initialized ) call initialize_module()
+
+! Begin with the horizontal distance
+! Compute great circle path shortest route between two points
+lon_dif = loc1%lon - loc2%lon
+
+if(approximate_distance) then
+   ! Option 1: Use table lookup; faster but less accurate
+   lat1_ind = int(loc1%lat*SINCOS_DELTA)
+   lat2_ind = int(loc2%lat*SINCOS_DELTA)
+   lon_ind  = int(lon_dif *SINCOS_DELTA)
+   temp     = int(ACOS_DELTA * (my_sin(lat2_ind) * my_sin(lat1_ind) + &
+                  my_cos(lat2_ind) * my_cos(lat1_ind) * my_cos(lon_ind)))
+   get_dist_horiz = my_acos(temp)
+else
+   ! Option 2: Use pre-defined trig functions: accurate but slow
+   ! First 2 ifs avoids round-off error that can kill acos;
+   if(abs(loc1%lat) >= PI/2.0_r8 .or. abs(loc2%lat) >= PI/2.0_r8 .or. &
+      lon_dif == 0.0_r8) then
+      get_dist_horiz = abs(loc2%lat - loc1%lat)
+   else
+      ! This test is for apparent roundoff error which may be a result of
+      ! running r8 == r4. 
+      rtemp = sin(loc2%lat) * sin(loc1%lat) + &
+              cos(loc2%lat) * cos(loc1%lat) * cos(lon_dif)
+      if (rtemp < -1.0_r8) then
+         get_dist_horiz = PI
+      else if (rtemp > 1.0_r8) then
+         get_dist_horiz = 0.0_r8
+      else
+         get_dist_horiz = acos(rtemp)
+      endif
+   endif
+endif
+
+end function get_dist_horiz
+
+!----------------------------------------------------------------------------
 
 function get_dist(loc1, loc2, type1, kind2, no_vert)
 
@@ -1569,14 +1617,8 @@ GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
                   num_close(obs) = num_close(obs) + 1
                   close_ind(obs, num_close(obs)) = t_ind
                else
-                  if(base_loc(obs)%which_vert == locs(t_ind)%which_vert) then
-                     ! Can compute total distance here if verts are the same
-                     this_dist = get_dist(base_loc(obs), locs(t_ind), base_type(obs), loc_qtys(t_ind))
-                  else 
-                     ! Otherwise can just get horizontal distance
-                     this_dist = get_dist(base_loc(obs), locs(t_ind), base_type(obs), loc_qtys(t_ind), &
-                        no_vert = .true.)
-                  endif
+                  ! Otherwise can just get horizontal distance
+                  this_dist = get_dist_horiz(base_loc(obs), locs(t_ind))
    
                   ! If this locations distance is less than cutoff, add it to the list
                   if(this_dist <= this_maxdist) then
@@ -1591,6 +1633,7 @@ GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
    end do
 
 enddo GLOBAL_OBS
+
 
 end subroutine get_close
 
