@@ -1378,6 +1378,8 @@ integer,                       intent(out) :: num_close(:), close_ind(:,:)
 real(r8),            optional, intent(out) :: dist(:,:)
 type(ensemble_type), optional, intent(in)  :: ens_handle
 
+call get_close_error_checks(gc, num_obs_to_assimilate, base_loc, base_type, locs)
+
 call get_close(gc, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, &
                num_close, close_ind, dist, ens_handle)
 
@@ -1401,6 +1403,8 @@ integer,                       intent(out) :: num_close(:), close_ind(:,:)
 real(r8),            optional, intent(out) :: dist(:,:)
 type(ensemble_type), optional, intent(in)  :: ens_handle
 
+call get_close_error_checks(gc, num_obs_to_assimilate, base_loc, base_type, locs)
+
 call get_close(gc, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, &
                num_close, close_ind, dist, ens_handle)
 
@@ -1408,34 +1412,14 @@ end subroutine get_close_state
 
 !----------------------------------------------------------------------------
 
-subroutine get_close(gc, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, &
-                     num_close, close_ind, dist, ens_handle)
+subroutine get_close_error_checks(gc, num_obs_to_assimilate, base_loc, base_type, locs)
 
-! The specific type of the base observation, plus the generic kinds list
-! for either the state or obs lists are available if a more sophisticated
-! distance computation is needed.
+type(get_close_type), intent(in)  :: gc
+integer,              intent(in)  :: num_obs_to_assimilate
+type(location_type),  intent(in)  :: base_loc(:), locs(:)
+integer,              intent(in)  :: base_type(:)
 
-type(get_close_type),          intent(in)  :: gc
-integer,                       intent(in)  :: num_obs_to_assimilate
-type(location_type),           intent(inout)  :: base_loc(:), locs(:)
-integer,                       intent(in)  :: base_type(:), loc_qtys(:)
-integer,                       intent(out) :: num_close(:), close_ind(:,:)
-real(r8),            optional, intent(out) :: dist(:,:)
-type(ensemble_type), optional, intent(in)  :: ens_handle
-
-! If dist is NOT present, just find everybody in a box, put them in the list,
-! but don't compute any distances
-
-integer :: lon_box, lat_box, i, j, k, n_lon, lon_ind, n_in_box, st, t_ind, bt
-real(r8) :: this_dist, this_maxdist
-integer  :: obs
-
-
-! First, set the intent out arguments to a missing value
-num_close = 0
-close_ind = -99
-if(present(dist)) dist = -99.0_r8
-this_dist = 999999.0_r8   ! something big.
+integer :: obs, bt
 
 do obs = 1, num_obs_to_assimilate
 
@@ -1487,6 +1471,39 @@ do obs = 1, num_obs_to_assimilate
    endif
    
 enddo
+
+end subroutine get_close_error_checks
+
+!----------------------------------------------------------------------------
+
+subroutine get_close(gc, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, &
+                     num_close, close_ind, dist, ens_handle)
+
+! The specific type of the base observation, plus the generic kinds list
+! for either the state or obs lists are available if a more sophisticated
+! distance computation is needed.
+
+type(get_close_type),          intent(in)  :: gc
+integer,                       intent(in)  :: num_obs_to_assimilate
+type(location_type),           intent(inout)  :: base_loc(:), locs(:)
+integer,                       intent(in)  :: base_type(:), loc_qtys(:)
+integer,                       intent(out) :: num_close(:), close_ind(:,:)
+real(r8),            optional, intent(out) :: dist(:,:)
+type(ensemble_type), optional, intent(in)  :: ens_handle
+
+! If dist is NOT present, just find everybody in a box, put them in the list,
+! but don't compute any distances
+
+integer :: lon_box, lat_box, i, j, k, n_lon, lon_ind, n_in_box, st, t_ind, bt
+real(r8) :: this_dist, this_maxdist
+integer  :: obs
+
+
+! First, set the intent out arguments to a missing value
+num_close = 0
+close_ind = -99
+if(present(dist)) dist = -99.0_r8
+this_dist = 999999.0_r8   ! something big.
 
 bt = 1 ! TODO HK more than one cutoff  
 ! If num == 0, no point in going any further. 
