@@ -32,7 +32,7 @@ use mpi_utilities_mod, only : my_task_id, task_count
 use ensemble_manager_mod, only : ensemble_type
 use assert_mod, only : assert_equal
 use sort_mod, only : sort
-
+use openacc
 implicit none
 private
 
@@ -137,6 +137,7 @@ character(len = 512) :: msgstring, msgstring1, msgstring2
 integer, parameter    :: VERT_TYPE_COUNT = 4
 real(r8)              :: vert_normalization(VERT_TYPE_COUNT)
 real(r8), allocatable :: per_type_vert_norm(:,:)  ! if doing per-type
+!$acc declare create(per_type_vert_norm,vert_normalization)
 
 ! Global storage for fast approximate sin and cosine lookups
 ! PAR For efficiency for small cases might want to fill tables as needed
@@ -149,6 +150,8 @@ integer,  parameter :: ACOS_LIMIT = 1000
 real(r8) :: my_sin(-SINCOS_LIMIT:SINCOS_LIMIT)
 real(r8) :: my_cos(-SINCOS_LIMIT:SINCOS_LIMIT)
 real(r8) :: my_acos(-ACOS_LIMIT:ACOS_LIMIT)
+!$acc declare create(my_sin,my_cos,my_acos)
+
 
 ! Tolerance for the top latitude boundary test.  All locations which
 ! are located on a box boundary are added to the bin on the larger
@@ -220,7 +223,7 @@ namelist /location_nml/ horiz_dist_only, vert_normalization_pressure, &
    special_vert_normalization_obs_types, special_vert_normalization_pressures, &
    special_vert_normalization_heights, special_vert_normalization_levels, &
    special_vert_normalization_scale_heights
-
+!$acc declare create(approximate_distance,horiz_dist_only,nlon)
 
 !-----------------------------------------------------------------
 
@@ -420,7 +423,7 @@ end subroutine initialize_module
 
 !----------------------------------------------------------------------------
 function get_dist_horiz(loc1, loc2)
-
+!$acc routine seq
 ! returns the horizontal distance between 2 locations in units of radians.
 
 type(location_type), intent(in) :: loc1, loc2
@@ -428,8 +431,6 @@ real(r8)                        :: get_dist_horiz
 
 real(r8) :: lon_dif, vert_dist, rtemp
 integer  :: lat1_ind, lat2_ind, lon_ind, temp  ! indexes into lookup tables
-
-if ( .not. module_initialized ) call initialize_module()
 
 ! Begin with the horizontal distance
 ! Compute great circle path shortest route between two points
@@ -1543,7 +1544,7 @@ type(ensemble_type), optional, intent(in)  :: ens_handle
 ! but don't compute any distances
 
 integer :: lon_box, lat_box, i, j, k, n_lon, lon_ind, n_in_box, st, t_ind, bt
-real(r8) :: this_dist, this_maxdist
+real(r8) :: this_dist, this_maxdist, tmp1,tmp2,tmp3
 integer  :: obs
 
 
@@ -1559,7 +1560,8 @@ if (gc%gtt(bt)%num == 0) return
 
 ! local variable for what the maxdist is in this particular case.
 this_maxdist = gc%gtt(bt)%maxdist
-
+!$acc data copyin(base_loc,gc,nlon) copyout(dist,num_close,close_ind)
+!$acc parallel loop reduction(+:tmp1,tmp2,tmp3)
 GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
    ! Begin by figuring out which box the base_ob is in.
    ! Note that the boxes will not cover the entire sphere for sets of locations 
@@ -1607,7 +1609,9 @@ GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
             st = gc%gtt(bt)%start(lon_ind, j)
             ! Loop to check how close all locs in the box are; add those that are close
             do k = 1, n_in_box
-   
+               tmp1 = 0.0_r8
+               tmp2 = 0.0_r8
+               tmp3 = 0.0_r8
                ! SHOULD ADD IN OPTIONAL ARGUMENT FOR DOING THIS!!!
                ! Could avoid adding any that have nums lower than base_ob???
                t_ind = gc%gtt(bt)%loc_box(st - 1 + k)
@@ -1622,9 +1626,15 @@ GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
    
                   ! If this locations distance is less than cutoff, add it to the list
                   if(this_dist <= this_maxdist) then
-                     num_close(obs) = num_close(obs) + 1
-                     close_ind(num_close(obs), obs) = t_ind
-                     dist(num_close(obs),obs) = this_dist
+                     !num_close(obs) = num_close(obs) + 1
+                     !close_ind(num_close(obs), obs) = t_ind
+                     !dist(num_close(obs),obs) = this_dist
+                     tmp1 = num_close(obs) + 1
+                     tmp2 = t_ind
+                     tmp3 = this_dist
+                     num_close(obs) = tmp1
+                     close_ind(num_close(obs), obs) = tmp2
+                     dist(num_close(obs),obs) = tmp3
                   endif
                endif
             end do
@@ -1633,7 +1643,8 @@ GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
    end do
 
 enddo GLOBAL_OBS
-
+!$acc end parallel
+!$acc end data
 ! TODO vertical distance
 
 
@@ -1651,7 +1662,7 @@ integer,              intent(in) :: my_num_obs
 type(location_type),  intent(in) :: base_loc, locs(my_num_obs)
 integer,              intent(in) :: base_type, loc_qtys(my_num_obs), loc_types(my_num_obs)
 integer,              intent(in) :: num_close, close_ind(my_num_obs)
-real(r8),             intent(in) :: dist(my_num_obs) ! this is not getting checked
+real(r8),             intent(in) :: dist(my_num_obs) 
 
 ! Variables needed for comparing against correct case
 integer  :: cnum_close, cclose_ind(my_num_obs), sorted_ind(my_num_obs)
@@ -2017,10 +2028,10 @@ end function find_closest_to_end
 !----------------------------------------------------------------------------
 
 function get_lon_box(gtt, lon)
-
+!$acc routine seq
 type(get_close_type_by_type), intent(in) :: gtt
 real(r8),                     intent(in) :: lon
-integer                                  :: get_lon_box
+integer                               :: get_lon_box
  
 real(r8) :: del_lon
 
