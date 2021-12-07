@@ -1634,6 +1634,8 @@ GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
 
 enddo GLOBAL_OBS
 
+! TODO vertical distance
+
 
 end subroutine get_close
 
