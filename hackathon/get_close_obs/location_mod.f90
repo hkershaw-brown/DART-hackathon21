@@ -1520,7 +1520,7 @@ GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
    if (lat_box == nlat+1) lat_box = nlat
    
    !  If it is not in any box, then it is more than the maxdist away from everybody
-   if(lat_box > nlat .or. lat_box < 1 .or. lon_box < 0) return
+   if(lat_box > nlat .or. lat_box < 1 .or. lon_box < 0) cycle GLOBAL_OBS
    
    ! Next, loop through to find each box that is close to this box
    do j = 1, nlat
