@@ -1560,7 +1560,7 @@ if (gc%gtt(bt)%num == 0) return
 
 ! local variable for what the maxdist is in this particular case.
 this_maxdist = gc%gtt(bt)%maxdist
-!$acc data copyin(num_close, close_ind, base_loc,gc,nlon) copyout(dist,num_close,close_ind)
+!$acc data copy(num_close, close_ind, base_loc,gc,nlon,dist)
 !$acc parallel loop reduction(+:tmp1,tmp2,tmp3)
 GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
    ! Begin by figuring out which box the base_ob is in.
