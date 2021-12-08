@@ -93,7 +93,7 @@ real(r8) :: tolerance   = epsilon(0.0_r8)  !< for compare to correct, tolarance 
 !  pop 0.2
 
 namelist /test_get_close_obs_nml/ my_num_obs, obs_to_assimilate, num_repeats, lon_start, lon_end, &
-                                  lat_start, lat_end, cutoff, compare_to_correct
+                                  lat_start, lat_end, cutoff, compare_to_correct, tolerance
 
 call initialize_mpi_utilities('test') ! do we even need mpi?
 
