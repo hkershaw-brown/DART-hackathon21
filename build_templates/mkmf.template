@@ -16,10 +16,11 @@ FC = nvfortran
 LD = nvfortran
 
 # include dir does not seem to be set by module load on Ascent
-NETCDF = /sw/ascent/spack-envs/base-rh7/opt/linux-rhel7-ppc64le/nvhpc-21.3/netcdf-fortran-4.4.5-5ow4urtqxanin7andkxizxbar4rqpxyn
+#NETCDF = /sw/ascent/spack-envs/base-rh7/opt/linux-rhel7-ppc64le/nvhpc-21.3/netcdf-fortran-4.4.5-5ow4urtqxanin7andkxizxbar4rqpxyn
 
+ACCFLAGS= -acc  -ta=tesla:managed -Minfo=accel -I${NVHPC_ROOT_PATH}/include -Mbackslash
+#ACCFLAGS= -acc -gpu=cc60,cc70,cuda11.1  -Minfo=accel -I${NVHPC_ROOT_PATH}/include -Mbackslash
 INCS = -I$(NETCDF)/include
 LIBS = -L$(NETCDF)/lib -lnetcdf -lnetcdff
-FFLAGS  = $(INCS) -g -Mbackslash -cuda
+FFLAGS  = $(INCS) -Mbackslash -g $(ACCFLAGS)
 LDFLAGS = $(FFLAGS) $(LIBS)
-
