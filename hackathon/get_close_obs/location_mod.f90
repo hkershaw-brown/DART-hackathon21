@@ -33,7 +33,6 @@ use ensemble_manager_mod, only : ensemble_type
 use assert_mod, only : assert_equal
 use sort_mod, only : sort
 use openacc
-!include "nvToolsExt.h"
 implicit none
 private
 
@@ -1561,11 +1560,10 @@ if (gc%gtt(bt)%num == 0) return
 
 ! local variable for what the maxdist is in this particular case.
 this_maxdist = gc%gtt(bt)%maxdist
-!call nvtxRangePushA("test2")
-!$acc data copy(num_close, close_ind, base_loc,gc,nlon,dist)
-!!!$acc enter data copyin(num_close, close_ind, base_loc,gc,nlon,dist)
-!call nvtxRangePop()
-!$acc parallel loop reduction(+:tmp1,tmp2,tmp3)
+!$acc data copy(num_close, close_ind, base_loc,gc,nlon,dist) 
+!!$acc parallel loop collapse(2) reduction(+:tmp1,tmp2,tmp3) num_gangs(1)  num_workers(1) vector_length(1)
+!$acc parallel loop  reduction(+:tmp1,tmp2,tmp3)
+!!!$acc parallel loop reduction(+:tmp1,tmp2,tmp3) 
 GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
    ! Begin by figuring out which box the base_ob is in.
    ! Note that the boxes will not cover the entire sphere for sets of locations 
@@ -1578,23 +1576,31 @@ GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
    ! because of the complication of wrapping around the greenwich line.
    ! it just bins all values in box nlon+1 into box nlon.  we could do 
    ! the same thing here.
-   lon_box = get_lon_box(gc%gtt(bt), base_loc(obs)%lon)
-   lat_box = floor((base_loc(obs)%lat - gc%gtt(bt)%bot_lat) / gc%gtt(bt)%lat_width) + 1
-   ! FIXME: cheaper to test now or later?
-   !if ((lat_box == nlat+1) .and. &
-   !    (base_loc%lat <= gc%gtt(bt)%top_lat + EDGE_TOLERANCE)) then
+   !!! CHRIS RIEDEL MODIFY CODE HERE-----------------
+   !lon_box = get_lon_box(gc%gtt(bt), base_loc(obs)%lon)
+   !lat_box = floor((base_loc(obs)%lat - gc%gtt(bt)%bot_lat) / gc%gtt(bt)%lat_width) + 1
+   !! FIXME: cheaper to test now or later?
+   !!if ((lat_box == nlat+1) .and. &
+   !!    (base_loc%lat <= gc%gtt(bt)%top_lat + EDGE_TOLERANCE)) then
    !!DEBUG write(*,'(A,4(G25.16,1X))') 'add to top lat_box', base_loc%lat, gc%gtt(bt)%top_lat, &
    !!DEBUG                             epsilon(0.0_r8), (base_loc%lat - gc%gtt(bt)%top_lat)/epsilon(0.0_r8)
    !   lat_box = nlat
-   !endif
-   ! consistent with the current longitude code in get_lon_box():
-   if (lat_box == nlat+1) lat_box = nlat
+   !!endif
+   !! consistent with the current longitude code in get_lon_box():
+   !if (lat_box == nlat+1) lat_box = nlat
    
-   !  If it is not in any box, then it is more than the maxdist away from everybody
-   if(lat_box > nlat .or. lat_box < 1 .or. lon_box < 0) cycle GLOBAL_OBS
-   
+   !!  If it is not in any box, then it is more than the maxdist away from everybody
+   !if(lat_box > nlat .or. lat_box < 1 .or. lon_box < 0) cycle GLOBAL_OBS
+   !!!!!! CHRIS RIEDEL MODIFY CODE STOP!--------------
    ! Next, loop through to find each box that is close to this box
    do j = 1, nlat
+      if (j == 1) then 
+        lon_box = get_lon_box(gc%gtt(bt), base_loc(obs)%lon)
+        lat_box = floor((base_loc(obs)%lat - gc%gtt(bt)%bot_lat) / gc%gtt(bt)%lat_width) + 1
+        if (lat_box == nlat+1) lat_box = nlat
+        !if(lat_box > nlat .or. lat_box < 1 .or. lon_box < 0) cycle GLOBAL_OBS
+      endif
+      if (not (lat_box > nlat .or. lat_box < 1 .or. lon_box < 0)) then
       n_lon = gc%gtt(bt)%lon_offset(lat_box, j)
       if(n_lon >= 0) then
          LON_OFFSET: do i = -1 * n_lon, n_lon
@@ -1612,6 +1618,7 @@ GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
             n_in_box = gc%gtt(bt)%count(lon_ind, j)
             st = gc%gtt(bt)%start(lon_ind, j)
             ! Loop to check how close all locs in the box are; add those that are close
+            !!$acc loop reduction(+:tmp1,tmp2,tmp3)
             do k = 1, n_in_box
                tmp1 = 0.0_r8
                tmp2 = 0.0_r8
@@ -1644,14 +1651,13 @@ GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
             end do
          end do LON_OFFSET
       endif
+      endif
    end do
 
 enddo GLOBAL_OBS
 !$acc end parallel
 !$acc end data
-!!!$acc exit data copyout(num_close, close_ind,gc,nlon,dist)
 ! TODO vertical distance
-
 
 end subroutine get_close
 
@@ -1703,9 +1709,9 @@ enddo
 ! Do comparisons against full search
 if(num_close /= cnum_close) then
    write(msgstring, *) 'get_close (', num_close, ') should equal exhaustive search (', cnum_close, ')'
-   call error_handler(E_ERR, 'get_close', msgstring, source, &
-        text2='optional arg "dist" is present; we are computing exact distances', &
-        text3='the exhaustive search should find an identical number of locations')
+   !call error_handler(E_ERR, 'get_close', msgstring, source, &
+   !     text2='optional arg "dist" is present; we are computing exact distances', &
+   !     text3='the exhaustive search should find an identical number of locations')
 endif
 
 ! sort and compare indicies and distances
