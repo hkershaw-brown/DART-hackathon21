@@ -1,0 +1,23 @@
+# Template for nv compiler on casper
+#
+# DART software - Copyright UCAR. This open source software is provided
+# by UCAR, "as is", without charge, subject to all terms of use at
+# http://www.image.ucar.edu/DAReS/DART/DART_download
+#
+# DART $Id$
+ 
+# typical use with mkmf
+# mkmf -t mkmf.template.xxxx ...
+#
+ 
+MPIFC = mpif90
+MPILD = mpif90
+FC = nvfortran
+LD = nvfortran
+ 
+# include dir does not seem to be set by module load on Ascent
+ACCFLAGS = -acc -ta=tesla:cc70,deepcopy -Minfo=accel -I${NVHPC_ROOT_PATH}/include -lnvhpcwrapnvtx -Minstrument -Mbackslash
+INCS = -I$(NETCDF)/include
+LIBS = -L$(NETCDF)/lib -lnetcdf -lnetcdff
+FFLAGS  = $(INCS) $(ACCFLAGS)
+LDFLAGS = $(FFLAGS) $(LIBS)
