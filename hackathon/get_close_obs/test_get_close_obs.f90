@@ -163,7 +163,7 @@ do i = 1, num_repeats
    call get_close_init(gc_obs, my_num_obs, 2.0_r8*cutoff, my_obs_loc)
 
    ! Note filter assim caches results if (obs location == previous obs location) if cutoff_list is not used
-   call get_close_obs(gc_obs, obs_to_assimilate, base_obs_loc, base_obs_type, my_obs_loc, &
+   call get_close_obs(gc_obs, my_num_obs, obs_to_assimilate, base_obs_loc, base_obs_type, my_obs_loc, &
                      my_obs_kind, my_obs_type, num_close_obs, close_obs_ind,&
                      close_obs_dist) 
 
@@ -172,6 +172,7 @@ do i = 1, num_repeats
         call gc_compare_to_correct(tolerance, gc_obs, my_num_obs, base_obs_loc(ob), base_obs_type(ob), my_obs_loc, &
                                    my_obs_kind, my_obs_type, num_close_obs(ob), close_obs_ind(:,ob), &
                                     close_obs_dist(:, ob)) 
+        print*, 'after obs_to_assimilate'
       enddo
    endif
 

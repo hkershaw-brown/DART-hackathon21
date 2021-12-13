@@ -1412,7 +1412,7 @@ end subroutine get_close_destroy
 
 !----------------------------------------------------------------------------
 
-subroutine get_close_obs(gc, my_num_obs, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, loc_types, &
+subroutine get_close_obs(gc, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, loc_types, &
                          num_close, close_ind, dist, ens_handle)
 
 ! The specific type of the base observation, plus the generic kinds list
@@ -1420,23 +1420,23 @@ subroutine get_close_obs(gc, my_num_obs, num_obs_to_assimilate, base_loc, base_t
 ! distance computation is needed.
 
 type(get_close_type),          intent(in)  :: gc
-integer,                       intent(in)  :: my_num_obs, num_obs_to_assimilate
-type(location_type),           intent(inout) :: base_loc(my_num_obs), locs(my_num_obs)
-integer,                       intent(in)  :: base_type(my_num_obs), loc_qtys(my_num_obs), loc_types(my_num_obs)
-integer,                       intent(out) :: num_close(my_num_obs), close_ind(my_num_obs,num_obs_to_assimilate)
-real(r8),            optional, intent(out) :: dist(my_num_obs,num_obs_to_assimilate)
+integer,                       intent(in)  :: num_obs_to_assimilate
+type(location_type),           intent(inout) :: base_loc(:), locs(:)
+integer,                       intent(in)  :: base_type(:), loc_qtys(:), loc_types(:)
+integer,                       intent(out) :: num_close(:), close_ind(:,:)
+real(r8),            optional, intent(out) :: dist(:,:)
 type(ensemble_type), optional, intent(in)  :: ens_handle
 
 call get_close_error_checks(gc, num_obs_to_assimilate, base_loc, base_type, locs)
 
-call get_close(gc, my_num_obs, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, &
+call get_close(gc, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, &
                num_close, close_ind, dist, ens_handle)
 
 end subroutine get_close_obs
 
 !----------------------------------------------------------------------------
 
-subroutine get_close_state(gc, my_num_obs, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, loc_indx, &
+subroutine get_close_state(gc, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, loc_indx, &
                            num_close, close_ind, dist, ens_handle)
 
 ! The specific type of the base observation, plus the generic kinds list
@@ -1444,17 +1444,17 @@ subroutine get_close_state(gc, my_num_obs, num_obs_to_assimilate, base_loc, base
 ! distance computation is needed.
 
 type(get_close_type),          intent(in)  :: gc
-integer,                       intent(in)  :: my_num_obs, num_obs_to_assimilate
-type(location_type),           intent(inout)  :: base_loc(my_num_obs), locs(my_num_obs)
-integer,                       intent(in)  :: base_type(my_num_obs), loc_qtys(my_num_obs)
-integer(i8),                   intent(in)  :: loc_indx(my_num_obs)
-integer,                       intent(out) :: num_close(my_num_obs), close_ind(my_num_obs,num_obs_to_assimilate)
-real(r8),            optional, intent(out) :: dist(my_num_obs, num_obs_to_assimilate)
+integer,                       intent(in)  :: num_obs_to_assimilate
+type(location_type),           intent(inout)  :: base_loc(:), locs(:)
+integer,                       intent(in)  :: base_type(:), loc_qtys(:)
+integer(i8),                   intent(in)  :: loc_indx(:)
+integer,                       intent(out) :: num_close(:), close_ind(:,:)
+real(r8),            optional, intent(out) :: dist(:,:)
 type(ensemble_type), optional, intent(in)  :: ens_handle
 
 call get_close_error_checks(gc, num_obs_to_assimilate, base_loc, base_type, locs)
 
-call get_close(gc, my_num_obs, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, &
+call get_close(gc, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, &
                num_close, close_ind, dist, ens_handle)
 
 end subroutine get_close_state
@@ -1525,7 +1525,7 @@ end subroutine get_close_error_checks
 
 !----------------------------------------------------------------------------
 
-subroutine get_close(gc, my_num_obs, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, &
+subroutine get_close(gc, num_obs_to_assimilate, base_loc, base_type, locs, loc_qtys, &
                      num_close, close_ind, dist, ens_handle)
 
 ! The specific type of the base observation, plus the generic kinds list
@@ -1533,12 +1533,11 @@ subroutine get_close(gc, my_num_obs, num_obs_to_assimilate, base_loc, base_type,
 ! distance computation is needed.
 
 type(get_close_type),          intent(in)  :: gc
-integer,                       intent(in)  :: my_num_obs
 integer,                       intent(in)  :: num_obs_to_assimilate
-type(location_type),           intent(inout)  :: base_loc(my_num_obs), locs(my_num_obs)
-integer,                       intent(in)  :: base_type(num_obs_to_assimilate), loc_qtys(num_obs_to_assimilate)
-integer,                       intent(out) :: num_close(my_num_obs), close_ind(my_num_obs, num_obs_to_assimilate)
-real(r8),            optional, intent(out) :: dist(my_num_obs,num_obs_to_assimilate)
+type(location_type),           intent(inout)  :: base_loc(:), locs(:)
+integer,                       intent(in)  :: base_type(:), loc_qtys(:)
+integer,                       intent(out) :: num_close(:), close_ind(:,:)
+real(r8),            optional, intent(out) :: dist(:,:)
 type(ensemble_type), optional, intent(in)  :: ens_handle
 
 ! If dist is NOT present, just find everybody in a box, put them in the list,
@@ -1546,7 +1545,7 @@ type(ensemble_type), optional, intent(in)  :: ens_handle
 
 integer :: lon_box, lat_box, i, j, k, n_lon, lon_ind, n_in_box, st, t_ind, bt
 real(r8) :: this_dist, this_maxdist, tmp1,tmp2,tmp3
-integer  :: obs
+integer  :: obs, max_value
 
 
 ! First, set the intent out arguments to a missing value
@@ -1555,17 +1554,21 @@ close_ind = -99
 if(present(dist)) dist = -99.0_r8
 this_dist = 999999.0_r8   ! something big.
 
-
 bt = 1 ! TODO HK more than one cutoff  
 ! If num == 0, no point in going any further. 
 if (gc%gtt(bt)%num == 0) return
 
+! To make the k loop rectangular
+max_value = maxval(gc%gtt(bt)%count(:, :))
 ! local variable for what the maxdist is in this particular case.
 this_maxdist = gc%gtt(bt)%maxdist
 !$acc data copy(num_close, close_ind, base_loc,gc,nlon,dist) 
-!!$acc parallel loop collapse(2) reduction(+:tmp1,tmp2,tmp3) num_gangs(1)  num_workers(1) vector_length(1)
-!$acc parallel loop  reduction(+:tmp1,tmp2,tmp3)
-!!!$acc parallel loop reduction(+:tmp1,tmp2,tmp3) 
+!!$acc enter data copyin(gc,gc%gtt,base_loc,locs,gc%type_to_cutoff_map,base_type,loc_qtys,num_close,close_ind,dist)
+!do i=1, gc%nt
+!   !$acc enter data copyin(gc%gtt(i)%lon_offset,gc%gtt(i)%loc_box,gc%gtt(i)%count,gc%gtt(i)%start)
+!enddo
+!!$acc parallel loop reduction(+:tmp1,tmp2,tmp3)
+!$acc parallel loop reduction(+:tmp1,tmp2,tmp3) collapse(2) 
 GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
    ! Begin by figuring out which box the base_ob is in.
    ! Note that the boxes will not cover the entire sphere for sets of locations 
@@ -1595,7 +1598,7 @@ GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
    !if(lat_box > nlat .or. lat_box < 1 .or. lon_box < 0) cycle GLOBAL_OBS
    !!!!!! CHRIS RIEDEL MODIFY CODE STOP!--------------
    ! Next, loop through to find each box that is close to this box
-   do j = 1, nlat
+   J_LOOP: do j = 1, nlat
       if (j == 1) then 
         lon_box = get_lon_box(gc%gtt(bt), base_loc(obs)%lon)
         lat_box = floor((base_loc(obs)%lat - gc%gtt(bt)%bot_lat) / gc%gtt(bt)%lat_width) + 1
@@ -1603,63 +1606,77 @@ GLOBAL_OBS: do obs = 1, num_obs_to_assimilate
         !if(lat_box > nlat .or. lat_box < 1 .or. lon_box < 0) cycle GLOBAL_OBS
       endif
       if (not (lat_box > nlat .or. lat_box < 1 .or. lon_box < 0)) then
-      n_lon = gc%gtt(bt)%lon_offset(lat_box, j)
-      if(n_lon >= 0) then
-         LON_OFFSET: do i = -1 * n_lon, n_lon
-            lon_ind = lon_box + i
-            ! Search a box at this latitude j offset in longitude by i
-            ! If domain is cyclic, need to wrap around
-            if(gc%gtt(bt)%lon_cyclic) then
-               if(lon_ind > nlon) lon_ind = lon_ind - nlon
-               if(lon_ind < 1) lon_ind = lon_ind + nlon
-            else
-               ! Domain is not cyclic, don't search if outside of range
-               if(lon_ind > nlon .or. lon_ind < 1) cycle LON_OFFSET
-            endif
-            ! Box to search is lon_ind, j
-            n_in_box = gc%gtt(bt)%count(lon_ind, j)
-            st = gc%gtt(bt)%start(lon_ind, j)
-            ! Loop to check how close all locs in the box are; add those that are close
-            !!$acc loop reduction(+:tmp1,tmp2,tmp3)
-            do k = 1, n_in_box
-               tmp1 = 0.0_r8
-               tmp2 = 0.0_r8
-               tmp3 = 0.0_r8
-               ! SHOULD ADD IN OPTIONAL ARGUMENT FOR DOING THIS!!!
-               ! Could avoid adding any that have nums lower than base_ob???
-               t_ind = gc%gtt(bt)%loc_box(st - 1 + k)
-   
-               if(.not. present(dist)) then
-                  ! Dist isn't present; add this ob to list without computing distance
-                  num_close(obs) = num_close(obs) + 1
-                  close_ind(num_close(obs),obs) = t_ind
+         n_lon = gc%gtt(bt)%lon_offset(lat_box, j)
+print*, 'n_lon', n_lon
+         if(n_lon >= 0) then
+            LON_OFFSET: do i = -1 * n_lon, n_lon
+               lon_ind = lon_box + i
+               ! Search a box at this latitude j offset in longitude by i
+               ! If domain is cyclic, need to wrap around
+               if(gc%gtt(bt)%lon_cyclic) then
+                  if(lon_ind > nlon) lon_ind = lon_ind - nlon
+                  if(lon_ind < 1) lon_ind = lon_ind + nlon
                else
-                  ! Otherwise can just get horizontal distance
-                  this_dist = get_dist_horiz(base_loc(obs), locs(t_ind))
-   
-                  ! If this locations distance is less than cutoff, add it to the list
-                  if(this_dist <= this_maxdist) then
-                     !num_close(obs) = num_close(obs) + 1
-                     !close_ind(num_close(obs), obs) = t_ind
-                     !dist(num_close(obs),obs) = this_dist
-                     tmp1 = num_close(obs) + 1
-                     tmp2 = t_ind
-                     tmp3 = this_dist
-                     num_close(obs) = tmp1
-                     close_ind(num_close(obs), obs) = tmp2
-                     dist(num_close(obs),obs) = tmp3
-                  endif
+                  ! Domain is not cyclic, don't search if outside of range
+                  if(lon_ind > nlon .or. lon_ind < 1) cycle LON_OFFSET
                endif
-            end do
-         end do LON_OFFSET
+               ! Box to search is lon_ind, j
+               n_in_box = gc%gtt(bt)%count(lon_ind, j)
+               st = gc%gtt(bt)%start(lon_ind, j)
+ 
+print*, 'n_in_box', n_in_box
+               ! Loop to check how close all locs in the box are; add those that are close
+               !$acc loop vector reduction(+:tmp1,tmp2,tmp3)
+               K_LOOP: do k = 1, n_in_box!max_value!n_in_box
+print*, 'Inside K'
+                  if (k < gc%gtt(bt)%count(lon_ind, j) ) then 
+                     tmp1 = 0.0_r8
+                     tmp2 = 0.0_r8
+                     tmp3 = 0.0_r8
+                     ! SHOULD ADD IN OPTIONAL ARGUMENT FOR DOING THIS!!!
+                     ! Could avoid adding any that have nums lower than base_ob???
+                     t_ind = gc%gtt(bt)%loc_box(st - 1 + k)
+   
+                     if(.not. present(dist)) then
+                        ! Dist isn't present; add this ob to list without computing distance
+                        num_close(obs) = num_close(obs) + 1
+                        close_ind(obs, num_close(obs)) = t_ind
+                     else
+                        ! Otherwise can just get horizontal distance
+                        this_dist = get_dist_horiz(base_loc(obs), locs(t_ind))
+   
+                        ! If this locations distance is less than cutoff, add it to the list
+                        if(this_dist <= this_maxdist) then
+                           !num_close(obs) = num_close(obs) + 1
+                           !close_ind(num_close(obs), obs) = t_ind
+                           !dist(num_close(obs),obs) = this_dist
+                           tmp1 = num_close(obs) + 1
+                           tmp2 = t_ind
+                           tmp3 = this_dist
+                           num_close(obs) = tmp1
+                           close_ind(num_close(obs), obs) = tmp2
+                           dist(num_close(obs),obs) = tmp3
+                        endif
+                      endif
+                    endif
+                enddo K_LOOP
+            end do LON_OFFSET
+         endif
       endif
-      endif
-   end do
+      end do J_LOOP
 
 enddo GLOBAL_OBS
 !$acc end parallel
+!$acc update host (num_close, close_ind, base_loc,gc,nlon,dist) 
 !$acc end data
+
+!!$acc exit data copyout(base_loc,locs,gc%type_to_cutoff_map,base_type,loc_qtys,num_close,close_ind,dist)
+!do i=1, gc%nt
+!   !$acc exit data copyout(gc%gtt(i)%lon_offset,gc%gtt(i)%loc_box,gc%gtt(i)%count,gc%gtt(i)%start)
+!enddo
+!!$acc exit data delete(gc,gc%gtt)
 ! TODO vertical distance
+
 
 end subroutine get_close
 
@@ -1724,15 +1741,12 @@ sorted_dist = sort(dist)
 
 call assert_equal(cclose_ind, sorted_ind, 'indicies not the same')
 
-
-print*, "my_num_obs", my_num_obs
 do i = 1, my_num_obs
-  if (abs(cdist(i) - sorted_dist(i)) > tolerance) then 
-    print*, 'not equal', cdist(i), sorted_dist(i)
-  else
-    print*, 'equal', cdist(i), sorted_dist(i) 
+  if (abs(cdist(i) - sorted_dist(i)) > tolerance)then
+     print*, 'not equal', cdist(i), sorted_dist(i)
+  else 
+     print*, 'equal', cdist(i), sorted_dist(i)
   endif
-print*, 'end of iteration', i
 enddo
 
 end subroutine gc_compare_to_correct

@@ -1726,9 +1726,9 @@ enddo
 ! Do comparisons against full search
 if(num_close /= cnum_close) then
    write(msgstring, *) 'get_close (', num_close, ') should equal exhaustive search (', cnum_close, ')'
-   !call error_handler(E_ERR, 'get_close', msgstring, source, &
-   !     text2='optional arg "dist" is present; we are computing exact distances', &
-   !     text3='the exhaustive search should find an identical number of locations')
+   call error_handler(E_MSG, 'get_close', msgstring, source, &
+        text2='optional arg "dist" is present; we are computing exact distances', &
+        text3='the exhaustive search should find an identical number of locations')
 endif
 
 ! sort and compare indicies and distances
@@ -1740,7 +1740,11 @@ sorted_dist = sort(dist)
 call assert_equal(cclose_ind, sorted_ind, 'indicies not the same')
 
 do i = 1, my_num_obs
-  if (abs(cdist(i) - sorted_dist(i)) > tolerance) print*, 'not equal', cdist(i), sorted_dist(i)
+  if (abs(cdist(i) - sorted_dist(i)) > tolerance)then
+     print*, 'not equal', cdist(i), sorted_dist(i)
+  else 
+     print*, 'equal', cdist(i), sorted_dist(i)
+  endif
 enddo
 
 end subroutine gc_compare_to_correct

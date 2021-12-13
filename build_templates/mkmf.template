@@ -10,24 +10,20 @@
 # mkmf -t mkmf.template.xxxx ...
 #
 
-MPIFC = mpif90
-MPILD = mpif90
-FC = nvfortran
-LD = nvfortran
+MPIFC = ftn
+MPILD = ftn
+FC = ftn
+LD = ftn
 
-# include dir does not seem to be set by module load on Ascent
-NETCDF = /sw/ascent/spack-envs/base-rh7/opt/linux-rhel7-ppc64le/nvhpc-21.3/netcdf-fortran-4.4.5-5ow4urtqxanin7andkxizxbar4rqpxyn
+NETCDF = /opt/cray/pe/netcdf/4.7.4.7/nvidia/20.7
 
-#ACCFLAGS= -acc  -ta=tesla:cc70 -Minfo=accel -I${NVHPC_ROOT_PATH}/include 
-#ACCFLAGS= -Mnofma -r8 -acc -ta=tesla:cc70,nofma -Minfo=accel -I${NVHPC_ROOT_PATH}/include 
-ACCFLAGS=  -acc -ta=tesla:cc70,pinned -Minfo=accel -I${NVHPC_ROOT_PATH}/include 
-
-
-#ACCFLAGS= -acc  -ta=tesla:managed -Minfo=accel -I${NVHPC_ROOT_PATH}/include 
-#ACCFLAGS= -acc  -gpu=managed -Minfo=accel -I${NVHPC_ROOT_PATH}/include 
-#ACCFLAGS= -acc -gpu=cc60,cc70,cuda11.1  -Minfo=accel -I${NVHPC_ROOT_PATH}/include -Mbackslash
-INCS = -I$(NETCDF)/include # -I/sw/ascent/cuda/10.1.243/include
+# Note you might have to comment out ACCFLAGS to build and run preprocess on the login node
+#ACCFLAGS = -acc -ta=tesla:cc70,pinned -Minfo=accel -I${NVHPC_ROOT_PATH}/include 
+#ACCFLAGS = -acc -ta=tesla:cc80,pinned,deepcopy -maxrregcount=84 -Minfo=accel -I${NVHPC_ROOT_PATH}/include 
+#ACCFLAGS = -acc -ta=tesla:cc80,deepcopy,pinned -Minfo=accel -I${NVHPC_ROOT_PATH}/include 
+ACCFLAGS = -acc -ta=tesla:cc80,deepcopy -Minfo=accel -I${NVHPC_ROOT_PATH}/include 
+INCS = -I$(NETCDF)/include
 LIBS = -L$(NETCDF)/lib -lnetcdf -lnetcdff
-FFLAGS  = $(INCS) -Mbackslash $(ACCFLAGS)
-#FFLAGS  = $(INCS) -Mbackslash -g -C -Ktrap=fp $(ACCFLAGS)
+FFLAGS  = $(INCS) -traceback -Mbackslash $(ACCFLAGS)
 LDFLAGS = $(FFLAGS) $(LIBS)
+
